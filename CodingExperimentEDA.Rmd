@@ -1,0 +1,182 @@
+---
+title: "Coding Experiment EDA | W241 Final Project"
+author: "Arunima Kayath, Daniel Rasband, Payman Rhogani"
+date: \today
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(data.table)
+library(magrittr)
+```
+
+
+```{r}
+d <- read.csv("CodingExperimentFinalResults.20190409.csv")
+dt <- as.data.table(d)
+head(dt)
+```
+
+```{r}
+names(dt)
+```
+
+```{r}
+dt[, .('Avg Years Experience' = mean(years_experience)), keyby=control_first]
+```
+
+```{r}
+dt[, .N, keyby=.(age, control_first)]
+```
+
+```{r}
+dt[, .N, keyby=test_set_name]
+```
+
+
+```{r}
+dt[, .N, keyby=.(team_size, control_first)]
+```
+
+```{r}
+# Pre-treatment attrition
+nrow(dt[week1_attempted == 0])
+dt[week1_attempted==0]
+```
+
+```{r}
+# Post-treatment attrition
+nrow(dt[(week1_attempted==1) & (week2_attempted==0)])
+```
+
+```{r}
+dt[, .N, keyby=control_first]
+```
+
+```{r}
+both_attempted = dt[(week1_attempted==1) & (week2_attempted==1)]
+both_attempted[, .N, keyby=control_first]
+```
+
+```{r}
+both_attempted[, .('Average Week 1 Score' = mean(w1_score)), keyby=control_first]
+```
+
+```{r}
+both_attempted[, .('Average Week 2 Score' = mean(w2_score)), keyby=control_first]
+```
+
+```{r}
+both_attempted[control_first==1, control_score := w1_score]
+both_attempted[control_first==1, treatment_score := w2_score]
+both_attempted[control_first==0, control_score := w2_score]
+both_attempted[control_first==0, treatment_score := w1_score]
+both_attempted[, .('Average Control Score' = mean(control_score), 'Average Treatment Score' = mean(treatment_score))]
+```
+
+```{r}
+both_attempted[, .('Average Control Score' = mean(control_score), 'Average Treatment Score' = mean(treatment_score)), keyby=.(upwork)]
+```
+
+
+```{r}
+both_attempted[control_first==1, control_time := w1_t1_t2_mins]
+both_attempted[control_first==1, treatment_time := w2_t1_t2_mins]
+both_attempted[control_first==0, control_time := w2_t1_t2_mins]
+both_attempted[control_first==0, treatment_time := w1_t1_t2_mins]
+both_attempted[, .('Average Control Time for First 2 Tasks' = mean(control_time), 'Average Treatment Time for First 2 Tasks' = mean(treatment_time))]
+```
+
+```{r}
+both_attempted[, .('Average Control Time for First 2 Tasks' = mean(control_time), 'Average Treatment Time for First 2 Tasks' = mean(treatment_time)), keyby=control_first]
+```
+
+```{r}
+dt[week1_attempted == 1, .('Week 1 Score' = mean(w1_score), 'Week 1 Time' = mean(w1_t1_t2_mins)), keyby=control_first]
+```
+
+
+```{r}
+dt[week2_attempted==1, .('Week 2 Score' = mean(w2_score), 'Week 2 Time' = mean(w2_t1_t2_mins)), keyby=.(upwork, control_first)]
+```
+
+```{r}
+dt[week1_attempted == 1, .N, keyby=upwork]
+both_attempted[, .N, keyby=upwork]
+```
+
+```{r}
+par(mfrow=c(3,2))
+dt[, hist(w1_t1_mins)]
+dt[, hist(w1_t1_score)]
+dt[, hist(w1_t2_mins)]
+dt[, hist(w1_t2_score)]
+dt[, hist(w1_t3_mins)]
+dt[, hist(w1_t3_score)]
+
+par(mfrow=c(3, 2))
+dt[, hist(w2_t1_mins)]
+dt[, hist(w2_t1_score)]
+dt[, hist(w2_t2_mins)]
+dt[, hist(w2_t2_score)]
+dt[, hist(w2_t3_mins)]
+dt[, hist(w2_t3_score)]
+```
+
+```{r}
+par(mfrow=c(4, 2))
+for (val in unique(dt$test_set_name)) {
+  both_attempted[test_set_name==val, hist(w1_t2_score, breaks = 10, main=val)]
+}
+```
+
+```{r}
+par(mfrow=c(4, 2))
+for (val in unique(dt$test_set_name)) {
+  both_attempted[test_set_name==val, hist(w2_t2_score, breaks = 10, main=val)]
+}
+```
+
+```{r}
+dt[w1_t2_id == 3, p3_score := w1_t2_score]
+dt[w1_t2_id == 3, p3_mins := w1_t2_mins]
+dt[w1_t2_id == 4, p3_score := w2_t2_score]
+dt[w1_t2_id == 4, p3_mins := w2_t2_mins]
+dt[w1_t2_id == 4, p4_score := w1_t2_score]
+dt[w1_t2_id == 4, p4_mins := w1_t2_mins]
+dt[w1_t2_id == 3, p4_score := w2_t2_score]
+dt[w1_t2_id == 3, p4_mins := w2_t2_mins]
+dt[w1_t3_id == 5, p5_score := w1_t3_score]
+dt[w1_t3_id == 5, p5_mins := w1_t3_mins]
+dt[w1_t3_id == 5, p6_score := w2_t3_score]
+dt[w1_t3_id == 5, p6_mins := w2_t3_mins]
+dt[w1_t3_id == 6, p5_score := w2_t3_score]
+dt[w1_t3_id == 6, p5_mins := w2_t3_mins]
+dt[w1_t3_id == 6, p6_score := w1_t3_score]
+dt[w1_t3_id == 6, p6_mins := w1_t3_mins]
+```
+
+```{r}
+par(mfrow=c(2, 2))
+dt[, hist(w1_t1_score, breaks = 20, main='Problem 1 Scores')]
+dt[, hist(w1_t1_mins, breaks = 10, main='Problem 1 Mins')]
+dt[, hist(w2_t1_score, breaks = 20, main='Problem 2 Score')]
+dt[, hist(w2_t1_mins, breaks = 10, main='Problem 2 Mins')]
+
+par(mfrow=c(2, 2))
+dt[, hist(p3_score, breaks = 20, main='Problem 3 Scores')]
+dt[, hist(p3_mins, breaks = 10, main='Problem 3 Mins')]
+dt[, hist(p4_score, breaks = 20, main='Problem 4 Score')]
+dt[, hist(p4_mins, breaks = 10, main='Problem 4 Mins')]
+
+par(mfrow=c(2, 2))
+dt[, hist(p5_score, breaks = 20, main='Problem 5 Score')]
+dt[, hist(p5_mins, breaks = 10, main='Problem 5 Mins')]
+dt[, hist(p6_score, breaks = 20, main='Problem 6 Score')]
+dt[, hist(p6_mins, breaks = 10, main='Problem 6 Mins')]
+```
+
