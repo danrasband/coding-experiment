@@ -180,3 +180,120 @@ dt[, hist(p6_score, breaks = 20, main='Problem 6 Score')]
 dt[, hist(p6_mins, breaks = 10, main='Problem 6 Mins')]
 ```
 
+```{r}
+summary(lm(w1_score ~ control_first + w1_t2_id + upwork + I(upwork * control_first), data = dt[week1_attempted==1]))
+```
+
+```{r}
+w1 <- dt[week1_attempted==1]
+w2 <- dt[week2_attempted==1]
+
+flattened_n <- nrow(w1) + nrow(w2)
+
+flattened_dt <- data.table(
+  t1_t2_mins=c(
+    w1[, w1_t1_t2_mins],
+    w2[, w2_t1_t2_mins]
+  ),
+  t1_t2_score=c(
+    w1[, (w1_t1_score + w1_t2_score) / 2],
+    w2[, (w2_t1_score + w2_t2_score) / 2]
+  ),
+  time=c(
+    w1[, w1_total_mins],
+    w2[, w2_total_mins]
+  ),
+  score=c(
+    w1[, w1_score],
+    w2[, w2_score]
+  ),
+  t2_id=c(
+    w1[, w1_t2_id],
+    w2[, w2_t2_id]
+  ),
+  treat=c(
+    w1[, abs(control_first - 1)],
+    w2[, control_first]
+  ),
+  upwork=c(w1[, upwork], w2[, upwork])
+)
+```
+
+```{r}
+head(flattened_dt)
+```
+
+```{r}
+summary(lm(t1_t2_score ~ treat + upwork + I(treat * upwork), data = flattened_dt))
+```
+
+I want to look at the difference between the first and second week (ignoring attrition for now).
+
+```{r}
+both_attempted[control_first == 1, score_diff := w2_score - w1_score]
+both_attempted[control_first == 0, score_diff := w1_score - w2_score]
+both_attempted[control_first == 1, mins_diff := w2_t1_t2_mins - w1_t1_t2_mins]
+both_attempted[control_first == 0, mins_diff := w1_t1_t2_mins - w2_t1_t2_mins]
+
+both_attempted[, mean(score_diff)]
+both_attempted[, mean(mins_diff)]
+both_attempted[upwork == 0, mean(score_diff)]
+both_attempted[upwork == 1, mean(score_diff)]
+both_attempted[upwork == 0, mean(mins_diff)]
+both_attempted[upwork == 1, mean(mins_diff)]
+```
+
+```{r}
+# Calculate the average treatment effect.
+ate.hat <- function(dt, outcome, keyby) {
+  ate <- dt %>%
+    .[ , .(mean_outcome = mean(get(outcome))), keyby=get(keyby)] %>%
+    .[ , diff(mean_outcome)]
+
+  return(ate)
+}
+
+# Simulate a sharp null distribution.
+simulate.sharp.null <- function(n, dt.withZ, outcome) {
+  simulate.ate <- function() {
+    ate <- dt.withZ %>%
+      .[ , .(mean_outcomes = mean(get(outcome))), keyby=sample(Z)] %>%
+      .[ , diff(mean_outcomes)]
+    return(ate)
+  }
+
+  return(replicate(n, simulate.ate()))
+}
+```
+
+```{r}
+both.dist <- simulate.sharp.null(10000, both_attempted[, Z := c(rep(0, .N / 2), rep(1, .N / 2))], "score_diff")
+hist(both.dist, breaks = 30)
+```
+
+```{r}
+length(both.dist[abs(both.dist) > 6.8]) / 10000
+```
+
+```{r}
+both.mins.dist <- simulate.sharp.null(10000, both_attempted[, Z := c(rep(0, .N / 2), rep(1, .N / 2))], "mins_diff")
+hist(both.mins.dist)
+```
+
+```{r}
+length(both.mins.dist[abs(both.mins.dist) > 0.6222222]) / 10000
+```
+
+```{r}
+upwork.score.dist <- simulate.sharp.null(10000, both_attempted[upwork == 1, Z := c(rep(0, .N / 2), rep(1, .N / 2))], "score_diff")
+hist(upwork.score.dist)
+```
+
+```{r}
+length(upwork.score.dist[abs(upwork.score.dist) > 10.277]) / 10000
+```
+
+```{r}
+summary(lm(score_diff ~ upwork + control_first, data = both_attempted))
+```
+
