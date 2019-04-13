@@ -16,7 +16,7 @@ library(magrittr)
 
 
 ```{r}
-d <- read.csv("CodingExperimentFinalResults.20190409.csv")
+d <- read.csv("CodingExperimentFinalResults.csv")
 dt <- as.data.table(d)
 head(dt)
 ```
@@ -241,7 +241,16 @@ both_attempted[upwork == 0, mean(score_diff)]
 both_attempted[upwork == 1, mean(score_diff)]
 both_attempted[upwork == 0, mean(mins_diff)]
 both_attempted[upwork == 1, mean(mins_diff)]
+
+# Possible spillover?
+both_attempted[, mean(score_diff), keyby=control_first]
+both_attempted[, mean(mins_diff), keyby=control_first]
 ```
+
+```{r}
+summary(lm(score_diff ~ control_first, data=both_attempted))
+```
+
 
 ```{r}
 # Calculate the average treatment effect.
