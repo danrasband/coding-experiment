@@ -1,0 +1,189 @@
+---
+title: "Final_Project_Initial_Analysis"
+author: "Arunima Kayath"
+date: "April 13, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(data.table)
+```
+
+
+```{r cars}
+setwd("C:/Users/Arunima/Documents/w241/Final_Project/AK_coding_experiment/")
+d <- read.csv("CodingExperimentFinalResults.csv")
+dt <- as.data.table(d)
+head(dt)
+colnames(dt)
+```
+
+```{r EDA}
+#How many people participated in week 1 and 2, by source
+dt[,.(sum(week1_attempted),sum(week2_attempted)), by = .(upwork,berkeley_student)]
+dt[(week1_attempted == 1) & (week2_attempted == 1) & (pre_task_treat == 1) & (pre_task_control == 1),.N,by = .(upwork,berkeley_student)]
+
+
+```
+
+
+```{r}
+#using question 1 as the benchmark (since that was same across test and control, what were scores across treatment and control for the different groups)
+
+#controlling for those who participated in both
+
+dt[(week1_attempted == 1) & (week2_attempted == 1) ,.(.N,w1_t1_avg = mean(w1_t1_score), w1_t1_mins = mean(w1_t1_mins),w2_t1_avg = mean(w2_t1_score), w2_t1_mins = mean(w2_t1_mins)), by = .(upwork,control_first)]
+
+dt[(week1_attempted == 1) & (week2_attempted == 1),.(.N,w1_t1_avg = mean(w1_t1_score), w1_t1_mins = mean(w1_t1_mins),w2_t1_avg = mean(w2_t1_score), w2_t1_mins = mean(w2_t1_mins)), by = .(upwork,berkeley_student,control_first,pre_task_control,pre_task_treat)]
+
+#controlling for those who participated in both, and registered treatment
+
+dt[(week1_attempted == 1) & (week2_attempted == 1) & (pre_task_treat == 1),.(.N,w1_t1_avg = mean(w1_t1_score), w1_t1_mins = mean(w1_t1_mins),w2_t1_avg = mean(w2_t1_score), w2_t1_mins = mean(w2_t1_mins)), by = .(control_first,pre_task_treat)]
+
+dt[(week1_attempted == 1) & (week2_attempted == 1) & (pre_task_treat == 1),.(.N,w1_t1_avg = mean(w1_t1_score), w1_t1_mins = mean(w1_t1_mins),w2_t1_avg = mean(w2_t1_score), w2_t1_mins = mean(w2_t1_mins)), by = .(upwork,control_first,pre_task_treat)]
+
+
+#controlling for those who participated in both and registered for treatment and control
+#overall
+dt[(week1_attempted == 1) & (week2_attempted == 1) & (pre_task_treat == 1) & (pre_task_control == 1),.(.N,w1_t1_avg = mean(w1_t1_score), w1_t1_mins = mean(w1_t1_mins),w2_t1_avg = mean(w2_t1_score), w2_t1_mins = mean(w2_t1_mins)), by = control_first]
+
+#by blocks
+dt[(week1_attempted == 1) & (week2_attempted == 1) & (pre_task_treat == 1) & (pre_task_control == 1),.(.N,w1_t1_avg = mean(w1_t1_score), w1_t1_mins = mean(w1_t1_mins),w2_t1_avg = mean(w2_t1_score), w2_t1_mins = mean(w2_t1_mins)), by = .(upwork,control_first)]
+
+dt[(week1_attempted == 1) & (week2_attempted == 1) & (pre_task_treat == 1) & (pre_task_control == 1),.(.N,w1_t1_avg = mean(w1_t1_score), w1_t1_mins = mean(w1_t1_mins),w2_t1_avg = mean(w2_t1_score), w2_t1_mins = mean(w2_t1_mins)), by = .(upwork,berkeley_student,control_first,pre_task_control,pre_task_treat)]
+
+
+
+
+
+```
+```{r}
+
+#How many were able to finish Ques 3.
+dt[(week1_attempted == 1) & (week2_attempted == 1) & ((w1_t3_score > 0) & (w2_t3_score > 0)),.(.N,sum(upwork),sum(upwork_20dollars),sum(berkeley_student), sum(control_first),w1_t1_score,w1_t1_mins,w1_t2_score,w1_t2_mins,w1_t3_score,w2_t3_score,w1_t3_mins,w1_score,(w1_t1_score + w1_t2_score)/2)]
+
+```
+
+```{r}
+#creating total score, control and treatment score, score difference columns
+dt$w1_t12sum_score = dt$w1_t1_score + dt$w1_t2_score
+dt$w2_t12sum_score = dt$w2_t1_score + dt$w2_t2_score
+dt$ctrl_t12_score = ifelse(dt$control_first == 1,dt$w1_t12sum_score, dt$w2_t12sum_score)
+dt$treat_t12_score = ifelse(dt$control_first == 1, dt$w2_t12sum_score,dt$w1_t12sum_score)
+dt$score_diff = dt$treat_t12_score - dt$ctrl_t12_score
+
+head(dt[,.(w1_t1_score,w1_t2_score,w1_t12sum_score,w2_t1_score,w2_t2_score,w2_t12sum_score,control_first,ctrl_t12_score,treat_t12_score,score_diff)])
+
+```
+```{r}
+dt$ctrl_t1_score = ifelse(dt$control_first == 1,dt$w1_t1_score,dt$w2_t1_score)
+dt$treat_t1_score = ifelse(dt$control_first == 1,dt$w2_t1_score,dt$w1_t1_score)
+dt$t1_score_diff = dt$treat_t1_score - dt$ctrl_t1_score
+
+```
+
+```{r}
+dt[(week1_attempted == 1) & (week2_attempted == 1) & (pre_task_treat == 1) ,.(.N,mean(ctrl_t12_score),mean(treat_t12_score),mean(score_diff)), by = .(upwork)]
+
+```
+
+
+
+```{r}
+lmWithin <- lm(score_diff ~ upwork + berkeley_student + years_experience + team_size + control_first + age, data = dt[(week1_attempted == 1) & (week2_attempted == 1)])
+summary(lmWithin)
+```
+
+Observations :
+Control first is slighly statistically significant. This means that the order in which people saw test or control made a difference to their outcome. People who were in control first were likely to do a little worse. This could be because people who saw treatment first assumed treatment would continue ie there wasn't a sufficiently long washout period.
+
+
+```{r}
+
+#Regression of week 1 score on variables including control_first (in this case a proxy for whether the person was in test or control for week 1)
+lmw1Score <- lm(w1_t12sum_score ~ control_first + upwork + berkeley_student + years_experience + age, data = dt[(week1_attempted == 1) & (week2_attempted == 1) & (pre_task_treat == 1)])
+summary(lmw1Score)
+
+lmw2Score <- lm(w2_t12sum_score ~ control_first + upwork + berkeley_student + years_experience + age, data = dt[(week1_attempted == 1) & (week2_attempted == 1) & (pre_task_treat == 1)])
+summary(lmw2Score)
+```
+
+```{r}
+
+#Zooming into week 1, test 1 score since test was standard there.
+lmw1t1Score <- lm(w1_t1_score ~ control_first + upwork + berkeley_student + years_experience, data = dt[(week1_attempted == 1) & (week2_attempted == 1) & (pre_task_treat == 1) & (pre_task_control == 1)])
+summary(lmw1Score)
+
+#Zooming into week 2, test 1 score since test was standard there. Also platform orientation effects should be smaller here.
+lmw2t1Score <- lm(w2_t1_score ~ control_first + upwork + berkeley_student + years_experience + age, data = dt[(week1_attempted == 1) & (week2_attempted == 1) & (pre_task_treat == 1)])
+summary(lmw2t1Score)
+
+#Combined test 1 and 2 score since both were same for everyone.
+dt$t1_score = dt$w1_t1_score + dt$w2_t1_score
+
+lmt1Score <- lm(t1_score ~ control_first + upwork + berkeley_student + years_experience + age, data = dt[(week1_attempted == 1) & (week2_attempted == 1) & (pre_task_treat == 1)])
+summary(lmt1Score)
+
+
+```
+
+Observations:
+- Control first does not show up as a significant variable in predicting week 1 test 1 score, or week 2 test 1 score amongst compliers.
+
+
+```{r Ques 3}
+
+#Determining the effect of being in test or control or being first or second in order on the score for Q3, Q4
+
+dt$Q3_score = ifelse(dt$w1_t2_id == 3,dt$w1_t2_score,dt$w2_t2_score)
+dt$Q3_order = ifelse(dt$w1_t2_id == 3,'w1','w2')
+dt$Q3_control = ifelse(dt$w1_t2_id == 3,ifelse(dt$control_first == 1,'C','T'),ifelse(dt$control_first == 1,'T','C'))
+
+#dt[(week1_attempted == 1) & (week2_attempted == 1) & (pre_task_treat == 1),.(.N,avg_Q3_score = mean(Q3_score))]
+
+dt[(week1_attempted == 1) & (week2_attempted == 1) & (pre_task_treat == 1),.(.N,avg_Q3_score = mean(Q3_score)),by = .(Q3_order,Q3_control)]
+
+dt$Q4_score = ifelse(dt$w1_t2_id == 4,dt$w1_t2_score,dt$w2_t2_score)
+dt$Q4_order = ifelse(dt$w1_t2_id == 4,'w1','w2')
+dt$Q4_control = ifelse(dt$w1_t2_id == 4,ifelse(dt$control_first == 1,'C','T'),ifelse(dt$control_first == 1,'T','C'))
+
+#dt[(week1_attempted == 1) & (week2_attempted == 1) & (pre_task_treat == 1),.(.N,avg_Q4_score = mean(Q4_score),sum(Q4_score > 0))]
+dt[(week1_attempted == 1) & (week2_attempted == 1) & (pre_task_treat == 1),.(.N,avg_Q4_score = mean(Q4_score),sum(Q4_score > 0),sum(Q4_score == 100)),by = .(Q4_order,Q4_control)]
+
+#head(dt[,.(w1_t2_id,w2_t2_id,w1_t2_score,w2_t2_score,Q4_score,Q4_order)])
+
+lmQ3 <- lm(Q3_score ~ upwork + berkeley_student + years_experience + age + team_size + Q3_control + Q3_order + Q3_control*Q3_order,data = dt[(week1_attempted == 1) & (week2_attempted == 1) & (pre_task_treat == 1)])
+summary(lmQ3)
+
+lmQ4 <- lm(Q4_score ~ upwork + berkeley_student + years_experience + age + team_size + Q4_control + Q4_order ,data = dt[(week1_attempted == 1) & (week2_attempted == 1) & (pre_task_treat == 1)])
+summary(lmQ4)
+
+
+```
+
+Observations:
+- For Q3, control scores are very similar in week 1 and 2. However, treatment scores are very different in week 1 and 2. Based on the regression, neither being in control or order (week 1 or 2) is statistically significant for the score on this test. Interestingly, year_experience is mildly significant. Although team size shows up as significant for a couple of sizes, the pattern of that with team size doesn't seem intuitive.
+
+- For Q4, average scores in week 2 were lower whether it was test or control. In digging in further (see people with score < 100 below), some people just had a score of 0 on the test. All others had a score of 100. So this is likely noise. Again, neither control vs treat, nor being in week 1 or 2 shows up as siginificant for predicting the score on Q4.
+
+
+
+```{r}
+dt[(week1_attempted == 1) & (week2_attempted == 1) & (pre_task_treat == 1) & (Q4_score <100),.(subject_id,Q4_score)]
+```
+```{r}
+dt$total_1to4_score = dt$w1_t12sum_score + dt$w2_t12sum_score
+
+lm1to4score <- lm(total_1to4_score ~ upwork + berkeley_student + years_experience + age + team_size,data = dt[(week1_attempted == 1) & (week2_attempted == 1)])
+
+summary(lm1to4score)
+
+```
+
+### Observations:
+
+Looking at the total score, years of experinece and team size are statistically significant in predicting total scores amongst those who took both the tests. People with more years of experienceshave slightly higher scores +10, while people who have worked in small teams have lower scores. Note that we didn't randomize these variables, so we can't make causal interpretations here.
