@@ -1,0 +1,558 @@
+---
+title: "Coding Experiment EDA | W241 Final Project"
+author: "Arunima Kayath, Daniel Rasband, Payman Rhogani"
+date: \today
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(data.table)
+library(magrittr)
+library(ggplot2)
+library(ggthemes)
+library(devtools)
+library(mice) #for missing value imputation
+library(reshape2)
+library(gridExtra)
+```
+
+
+```{r}
+data <- read.csv("CodingExperimentFinalResults.csv")
+d <- as.data.table(data)
+d
+```
+
+
+```{r}
+#PR
+print(paste("Number of subjects randomized for the study:", nrow(d)))
+print(paste("Number of variables:", ncol(d)))
+```
+
+```{r}
+print("Variables:")
+names(d)
+```
+
+```{r}
+#Number of subjects in control/treatment groups in week 1
+d[, .N, by=control_first]
+```
+
+
+```{r}
+#Week 1 participants
+d[, .N, by=week1_attempted]
+```
+
+
+```{r}
+#Week 2 participants
+d[, .N, by=week2_attempted]
+```
+```{r}
+print(paste("Number of subjects who attempted both tests (week 1 and 2):", d[(week1_attempted==1) & (week2_attempted==1), .N]))
+```
+
+```{r}
+print(paste("Pre-treatment attrition:", nrow(d[week1_attempted == 0])))
+print(paste("Post-treatment attrition:", nrow(d[(week1_attempted==1) & (week2_attempted==0)])))
+```
+
+```{r}
+#Number of subjects in control/treatment groups who attrited pre-treatment
+d[(week1_attempted==0) & (week2_attempted==0),.N,keyby=control_first]
+#No differen between control vs treatment groups
+```
+
+```{r}
+#Number of subjects in control/treatment groups who attrited post-treatment
+d[(week1_attempted==1) & (week2_attempted==0),.N,keyby=control_first]
+#No differen between control vs treatment groups
+```
+
+```{r}
+dt <- d[(week1_attempted==1) & (week2_attempted==1)]
+dt
+```
+
+
+
+```{r}
+dt[, .('Avg Years Experience' = mean(years_experience)), keyby=control_first]
+```
+
+
+```{r}
+dt$Control_w1 <- ifelse(dt$control_first == 1, "Y", "N")
+group_mean <- dt[, .(mean(years_experience)), keyby=Control_w1]
+```
+
+
+```{r}
+p<-ggplot(dt, aes(x=years_experience, color=Control_w1)) + 
+  geom_histogram(fill="white", binwidth=0.5, alpha=0.5,position="dodge")
+p+geom_vline(data=group_mean, aes(xintercept=V1, color=Control_w1),
+             linetype="dashed") + labs(title="Years of Experience",x="Years", y = "Count") 
+
+```
+
+
+```{r}
+dt[, .N, keyby=.(age, control_first)]
+```
+
+
+```{r}
+p<-ggplot(dt, aes(x=age, color=Control_w1)) + 
+  geom_bar(fill="white", alpha=0.5, width = 0.5, position="dodge")
+# p + labs(title="Age of Subjects",x="Age Groups", y = "Count") + scale_y_discrete(limits=c(0,14), breaks=)
+p + labs(title="Subjects' Age Groups",x="Age Groups", y = "Count") + ylim(0,15)
+```
+
+
+```{r}
+dt[, .N, keyby=test_set_name]
+```
+
+
+```{r}
+p<-ggplot(dt, aes(x=test_set_name)) + 
+  geom_bar(color="darkblue",fill="lightblue", alpha=0.5, width = 0.5)
+p + labs(title="Test Sets Used in the Study",x="Test Set", y = "Count") + 
+  theme(axis.text.x = element_text(face="bold", size=12, angle=45, , hjust = 1), axis.text.y = element_text(size=12))
+# p + labs(title="Subjects' Age Groups",x="Age Groups", y = "Count") + ylim(0,10)
+```
+
+```{r}
+dt[, .N, keyby=.(team_size, control_first)]
+```
+
+```{r}
+p<-ggplot(dt, aes(x=team_size, color=Control_w1)) + 
+  geom_bar(fill="white", width=0.5, alpha=0.5,position="dodge")
+p + labs(title="Team Sizes Where Subject Work",x="Team Size", y = "Count") 
+```
+
+
+
+
+```{r}
+dt[, .('Average Week 1 Score' = mean(w1_score)), keyby=control_first]
+```
+
+```{r}
+score_w1_mean <- dt[, .(mean(w1_score)), keyby=Control_w1]
+```
+
+
+```{r}
+p<-ggplot(dt,  aes(x=w1_score, fill=Control_w1)) + geom_area(stat = "bin",alpha=0.6, binwidth=8)
+
+p + geom_vline(data=score_w1_mean, aes(xintercept=V1, color=Control_w1),
+             linetype="dashed") + labs(title="Average Week 1 Score",x="Score", y = "Count") 
+```
+
+
+
+```{r}
+dt[, .('Average Week 2 Score' = mean(w2_score)), keyby=control_first]
+```
+```{r}
+score_w2_mean <- dt[, .(mean(w2_score)), keyby=Control_w1]
+score_w2_mean
+```
+
+
+```{r}
+p<-ggplot(dt,  aes(x=w2_score, fill=Control_w1)) + geom_area(stat = "bin",alpha=0.6, binwidth=8)
+
+p + geom_vline(data=score_w2_mean, aes(xintercept=V1,color=Control_w1), linetype="dashed") + ylim(0,30) + 
+  labs(title="Average Week 2 Score",x="Score", y = "Count") 
+
+```
+
+```{r}
+plot1 <- ggplot(dt, aes(Control_w1, w1_t1_mins)) + geom_boxplot(varwidth=T,aes(fill=Control_w1)) +
+    labs(title="Time to Complete Test 1, Week 1",
+         x="In Control Group During Week 1",
+         y="Minutes") + theme(axis.text.x = element_text(size = 10),axis.text.y = element_text(size = 10), 
+         axis.title.x = element_text(size = 10),axis.title.y = element_text(size = 10), 
+         legend.text = element_text(size=10), legend.title = element_text(size=8), plot.title = element_text(size=10)) +
+         guides(fill=guide_legend(title="Control, \nwk 1"))
+plot2 <- ggplot(dt, aes(Control_w1, w1_t1_score)) + geom_boxplot(varwidth=T,aes(fill=Control_w1)) +
+    labs(title="Score: Test 1, Week 1",
+         x="In Control Group During Week 1",
+         y="Score") + theme(axis.text.x = element_text(size = 10),axis.text.y = element_text(size = 10), 
+         axis.title.x = element_text(size = 10),axis.title.y = element_text(size = 10), 
+         legend.text = element_text(size=10), legend.title = element_text(size=8), plot.title = element_text(size=10)) +
+         guides(fill=guide_legend(title="Control, \nwk 1"))
+plot3 <- ggplot(dt, aes(Control_w1, w1_t2_mins)) + geom_boxplot(varwidth=T,aes(fill=Control_w1)) +
+    labs(title="Time to Complete Test 2, Week 1",
+         x="In Control Group During Week 1",
+         y="Minutes") + theme(axis.text.x = element_text(size = 10),axis.text.y = element_text(size = 10), 
+         axis.title.x = element_text(size = 10),axis.title.y = element_text(size = 10), 
+         legend.text = element_text(size=10), legend.title = element_text(size=8), plot.title = element_text(size=10)) +
+         guides(fill=guide_legend(title="Control, \nwk 1"))
+plot4 <- ggplot(dt, aes(Control_w1, w1_t2_score)) + geom_boxplot(varwidth=T,aes(fill=Control_w1)) +
+    labs(title="Score: Test 2, Week 1",
+         x="In Control Group During Week 1",
+         y="Score") + theme(axis.text.x = element_text(size = 10),axis.text.y = element_text(size = 10), 
+         axis.title.x = element_text(size = 10),axis.title.y = element_text(size = 10), 
+         legend.text = element_text(size=10), legend.title = element_text(size=8), plot.title = element_text(size=10)) +
+         guides(fill=guide_legend(title="Control, \nwk 1"))
+plot5 <- ggplot(dt, aes(Control_w1, w1_t3_mins)) + geom_boxplot(varwidth=T,aes(fill=Control_w1)) +
+    labs(title="Time to Complete Test 3, Week 1",
+         x="In Control Group During Week 1",
+         y="Minutes") + theme(axis.text.x = element_text(size = 10),axis.text.y = element_text(size = 10), 
+         axis.title.x = element_text(size = 10),axis.title.y = element_text(size = 10), 
+         legend.text = element_text(size=10), legend.title = element_text(size=8), plot.title = element_text(size=10)) +
+         guides(fill=guide_legend(title="Control, \nwk 1"))
+plot6 <- ggplot(dt, aes(Control_w1, w1_t3_score)) + geom_boxplot(varwidth=T,aes(fill=Control_w1)) +
+    labs(title="Score: Test 3, Week 1",
+         x="In Control Group During Week 1",
+         y="Score") + theme(axis.text.x = element_text(size = 10),axis.text.y = element_text(size = 10), 
+         axis.title.x = element_text(size = 10),axis.title.y = element_text(size = 10), 
+         legend.text = element_text(size=10), legend.title = element_text(size=8), plot.title = element_text(size=10)) +
+         guides(fill=guide_legend(title="Control, \nwk 1"))
+plot7 <- ggplot(dt, aes(Control_w1, w1_t1_t2_mins)) + geom_boxplot(varwidth=T,aes(fill=Control_w1)) +
+    labs(title="Score: Test 3, Week 1",
+         x="Total Time for Tests 1 & 2, Week 1",
+         y="Score") + theme(axis.text.x = element_text(size = 10),axis.text.y = element_text(size = 10), 
+         axis.title.x = element_text(size = 10),axis.title.y = element_text(size = 10), 
+         legend.text = element_text(size=10), legend.title = element_text(size=8), plot.title = element_text(size=10)) +
+         guides(fill=guide_legend(title="Control, \nwk 1"))
+
+
+grid.arrange(plot1, plot2, plot3, plot4, plot5, plot6, ncol=2, nrow=3)
+```
+
+```{r}
+plot8 <- ggplot(dt, aes(Control_w1, w1_total_mins)) + geom_boxplot(varwidth=T,aes(fill=Control_w1)) +
+    labs(title="Total Test Time, Week 1",
+         x="In Control Group During Week 1",
+         y="Minutes") + theme(axis.text.x = element_text(size = 10),axis.text.y = element_text(size = 10),
+         axis.title.x = element_text(size = 10),axis.title.y = element_text(size = 10),
+         legend.text = element_text(size=10), legend.title = element_text(size=8), plot.title = element_text(size=10)) +
+         guides(fill=guide_legend(title="Control, \nwk 1"))
+plot9 <- ggplot(dt, aes(Control_w1, w1_score)) + geom_boxplot(varwidth=T,aes(fill=Control_w1)) +
+    labs(title="Total Score, Week 1",
+         x="In Control Group During Week 1",
+         y="Score") + theme(axis.text.x = element_text(size = 10),axis.text.y = element_text(size = 10),
+         axis.title.x = element_text(size = 10),axis.title.y = element_text(size = 10),
+         legend.text = element_text(size=10), legend.title = element_text(size=8), plot.title = element_text(size=10)) +
+         guides(fill=guide_legend(title="Control, \nwk 1"))
+
+grid.arrange(plot8, plot9, ncol=2, nrow=1)
+```
+
+```{r}
+plot1 <- ggplot(dt, aes(Control_w1, w2_t1_mins)) + geom_boxplot(varwidth=T,aes(fill=Control_w1)) +
+    labs(title="Time to Complete Test 1, Week 2",
+         x="In Control Group During Week 1",
+         y="Minutes") + theme(axis.text.x = element_text(size = 10),axis.text.y = element_text(size = 10), 
+         axis.title.x = element_text(size = 10),axis.title.y = element_text(size = 10), 
+         legend.text = element_text(size=10), legend.title = element_text(size=8), plot.title = element_text(size=10)) +
+         guides(fill=guide_legend(title="Control, \nwk 1"))
+plot2 <- ggplot(dt, aes(Control_w1, w2_t1_score)) + geom_boxplot(varwidth=T,aes(fill=Control_w1)) +
+    labs(title="Score: Test 1, Week 1",
+         x="In Control Group During Week 2",
+         y="Score") + theme(axis.text.x = element_text(size = 10),axis.text.y = element_text(size = 10), 
+         axis.title.x = element_text(size = 10),axis.title.y = element_text(size = 10), 
+         legend.text = element_text(size=10), legend.title = element_text(size=8), plot.title = element_text(size=10)) +
+         guides(fill=guide_legend(title="Control, \nwk 1"))
+plot3 <- ggplot(dt, aes(Control_w1, w2_t2_mins)) + geom_boxplot(varwidth=T,aes(fill=Control_w1)) +
+    labs(title="Time to Complete Test 2, Week 2",
+         x="In Control Group During Week 1",
+         y="Minutes") + theme(axis.text.x = element_text(size = 10),axis.text.y = element_text(size = 10), 
+         axis.title.x = element_text(size = 10),axis.title.y = element_text(size = 10), 
+         legend.text = element_text(size=10), legend.title = element_text(size=8), plot.title = element_text(size=10)) +
+         guides(fill=guide_legend(title="Control, \nwk 1"))
+plot4 <- ggplot(dt, aes(Control_w1, w2_t2_score)) + geom_boxplot(varwidth=T,aes(fill=Control_w1)) +
+    labs(title="Score: Test 2, Week 2",
+         x="In Control Group During Week 1",
+         y="Score") + theme(axis.text.x = element_text(size = 10),axis.text.y = element_text(size = 10), 
+         axis.title.x = element_text(size = 10),axis.title.y = element_text(size = 10), 
+         legend.text = element_text(size=10), legend.title = element_text(size=8), plot.title = element_text(size=10)) +
+         guides(fill=guide_legend(title="Control, \nwk 1"))
+plot5 <- ggplot(dt, aes(Control_w1, w2_t3_mins)) + geom_boxplot(varwidth=T,aes(fill=Control_w1)) +
+    labs(title="Time to Complete Test 3, Week 2",
+         x="In Control Group During Week 1",
+         y="Minutes") + theme(axis.text.x = element_text(size = 10),axis.text.y = element_text(size = 10), 
+         axis.title.x = element_text(size = 10),axis.title.y = element_text(size = 10), 
+         legend.text = element_text(size=10), legend.title = element_text(size=8), plot.title = element_text(size=10)) +
+         guides(fill=guide_legend(title="Control, \nwk 1"))
+plot6 <- ggplot(dt, aes(Control_w1, w2_t3_score)) + geom_boxplot(varwidth=T,aes(fill=Control_w1)) +
+    labs(title="Score: Test 3, Week 2",
+         x="In Control Group During Week 1",
+         y="Score") + theme(axis.text.x = element_text(size = 10),axis.text.y = element_text(size = 10), 
+         axis.title.x = element_text(size = 10),axis.title.y = element_text(size = 10), 
+         legend.text = element_text(size=10), legend.title = element_text(size=8), plot.title = element_text(size=10)) +
+         guides(fill=guide_legend(title="Control, \nwk 1"))
+
+
+grid.arrange(plot1, plot2, plot3, plot4, plot5, plot6, ncol=2, nrow=3)
+```
+
+```{r}
+plot8 <- ggplot(dt, aes(Control_w1, w2_total_mins)) + geom_boxplot(varwidth=T,aes(fill=Control_w1)) +
+    labs(title="Total Test Time, Week 2",
+         x="In Control Group During Week 1",
+         y="Minutes") + theme(axis.text.x = element_text(size = 10),axis.text.y = element_text(size = 10),
+         axis.title.x = element_text(size = 10),axis.title.y = element_text(size = 10),
+         legend.text = element_text(size=10), legend.title = element_text(size=8), plot.title = element_text(size=10)) +
+         guides(fill=guide_legend(title="Control, \nwk 1"))
+plot9 <- ggplot(dt, aes(Control_w1, w2_score)) + geom_boxplot(varwidth=T,aes(fill=Control_w1)) +
+    labs(title="Total Score, Week 2",
+         x="In Control Group During Week 1",
+         y="Score") + theme(axis.text.x = element_text(size = 10),axis.text.y = element_text(size = 10),
+         axis.title.x = element_text(size = 10),axis.title.y = element_text(size = 10),
+         legend.text = element_text(size=10), legend.title = element_text(size=8), plot.title = element_text(size=10)) +
+         guides(fill=guide_legend(title="Control, \nwk 1"))
+
+grid.arrange(plot8, plot9, ncol=2, nrow=1)
+```
+
+```{r}
+# dt[control_first==1, control_score := w1_score]
+# dt[control_first==1, treatment_score := w2_score]
+# dt[control_first==0, control_score := w2_score]
+# dt[control_first==0, treatment_score := w1_score]
+# dt[, .('Average Control Score' = mean(control_score), 'Average Treatment Score' = mean(treatment_score))]
+```
+
+```{r}
+# dt[, .('Average Control Score' = mean(control_score), 'Average Treatment Score' = mean(treatment_score)), keyby=.(upwork)]
+```
+
+```{r}
+names(dt)
+```
+
+
+```{r}
+dt[control_first==1, control_time_total := w1_total_mins]
+dt[control_first==1, treatment_time_total := w2_total_mins]
+dt[control_first==0, control_time_total := w1_total_mins]
+dt[control_first==0, treatment_time_total := w2_total_mins]
+
+dt[control_first==1, control_time_t1_t2 := w1_t1_t2_mins]
+dt[control_first==1, treatment_time_t1_t2 := w2_t1_t2_mins]
+dt[control_first==0, control_time_t1_t2 := w2_t1_t2_mins]
+dt[control_first==0, treatment_time_t1_t2 := w1_t1_t2_mins]
+
+dt[, .('Average Control Time for All Tasks' = mean(control_time_total), 'Average Treatment Time for All Tasks' = mean(treatment_time_total))]
+dt[, .('Average Control Time for First 2 Tasks' = mean(control_time_t1_t2), 'Average Treatment Time for First 2 Tasks' = mean(treatment_time_t1_t2))]
+
+```
+
+```{r}
+# dt[, .('Average Control Time for First 2 Tasks' = mean(control_time), 'Average Treatment Time for First 2 Tasks' = mean(treatment_time)), keyby=control_first]
+```
+
+```{r}
+dt[week1_attempted == 1, .('Week 1 Score' = mean(w1_score), 'Week 1 Time' = mean(w1_t1_t2_mins)), keyby=control_first]
+```
+
+
+```{r}
+dt[week2_attempted==1, .('Week 2 Score' = mean(w2_score), 'Week 2 Time' = mean(w2_t1_t2_mins)), keyby=.(upwork, control_first)]
+```
+
+```{r}
+dt[week1_attempted == 1, .N, keyby=upwork]
+```
+
+
+```{r}
+par(mfrow=c(4, 2))
+for (val in unique(dt$test_set_name)) {
+  both_attempted[test_set_name==val, hist(w1_t2_score, breaks = 10, main=val)]
+}
+```
+
+```{r}
+par(mfrow=c(4, 2))
+for (val in unique(dt$test_set_name)) {
+  both_attempted[test_set_name==val, hist(w2_t2_score, breaks = 10, main=val)]
+}
+```
+
+
+
+```{r}
+dt[control_first == 1, score_diff := w2_score - w1_score]
+dt[control_first == 0, score_diff := w1_score - w2_score]
+dt[control_first == 1, mins_diff := w2_total_mins - w1_total_mins]
+dt[control_first == 0, mins_diff := w1_total_mins - w2_total_mins]
+
+print(paste("Avg score difference:", dt[, mean(score_diff)]))
+print(paste("Avg time difference:", dt[, mean(mins_diff)]))
+
+# dt[upwork == 0, mean(score_diff)]
+# dt[upwork == 1, mean(score_diff)]
+# dt[upwork == 0, mean(mins_diff)]
+# dt[upwork == 1, mean(mins_diff)]
+```
+
+```{r}
+dt[control_first == 1, score_diff_t1 := w2_t1_score - w1_t1_score]
+dt[control_first == 0, score_diff_t1 := w1_t1_score - w2_t1_score]
+dt[control_first == 1, mins_diff_t1 := w2_t1_mins - w1_t1_mins]
+dt[control_first == 0, mins_diff_t1 := w1_t1_mins - w2_t1_mins]
+
+dt[control_first == 1, score_diff_t2 := w2_t2_score - w1_t2_score]
+dt[control_first == 0, score_diff_t2 := w1_t2_score - w2_t2_score]
+dt[control_first == 1, mins_diff_t2 := w2_t2_mins - w1_t2_mins]
+dt[control_first == 0, mins_diff_t2 := w1_t2_mins - w2_t2_mins]
+
+dt[control_first == 1, score_diff_t3 := w2_t3_score - w1_t3_score]
+dt[control_first == 0, score_diff_t3 := w1_t3_score - w2_t3_score]
+dt[control_first == 1, mins_diff_t3 := w2_t3_mins - w1_t3_mins]
+dt[control_first == 0, mins_diff_t3 := w1_t3_mins - w2_t3_mins]
+
+```
+
+```{r}
+dt[,score_diff_t1_t2 := score_diff_t1 + score_diff_t2]
+dt[,mins_diff_t1_t2 := mins_diff_t1 + mins_diff_t2]
+```
+
+```{r}
+dt[control_first == 1, treatment_score_t1 := w2_t1_score]
+dt[control_first == 0, treatment_score_t1 := w1_t1_score]
+dt[control_first == 1, control_score_t1 := w1_t1_score]
+dt[control_first == 0, control_score_t1 := w2_t1_score]
+dt[control_first == 1, treatment_mins_t1 := w2_t1_mins]
+dt[control_first == 0, treatment_mins_t1 := w1_t1_mins]
+dt[control_first == 1, control_mins_t1 := w1_t1_mins]
+dt[control_first == 0, control_mins_t1 := w2_t1_mins]
+
+dt[control_first == 1, treatment_score_t2 := w2_t2_score]
+dt[control_first == 0, treatment_score_t2 := w1_t2_score]
+dt[control_first == 1, control_score_t2 := w1_t2_score]
+dt[control_first == 0, control_score_t2 := w2_t2_score]
+dt[control_first == 1, treatment_mins_t2 := w2_t2_mins]
+dt[control_first == 0, treatment_mins_t2 := w1_t2_mins]
+dt[control_first == 1, control_mins_t2 := w1_t2_mins]
+dt[control_first == 0, control_mins_t2 := w2_t2_mins]
+
+dt[control_first == 1, treatment_score_t3 := w2_t3_score]
+dt[control_first == 0, treatment_score_t3 := w1_t3_score]
+dt[control_first == 1, control_score_t3 := w1_t3_score]
+dt[control_first == 0, control_score_t3 := w2_t3_score]
+dt[control_first == 1, treatment_mins_t3 := w2_t3_mins]
+dt[control_first == 0, treatment_mins_t3 := w1_t3_mins]
+dt[control_first == 1, control_mins_t3 := w1_t3_mins]
+dt[control_first == 0, control_mins_t3 := w2_t3_mins]
+
+dt[control_first == 1, treatment_score_t1_t2 := w2_t1_score + w2_t2_score]
+dt[control_first == 0, treatment_score_t1_t2 := w1_t1_score + w1_t2_score]
+dt[control_first == 1, control_score_t1_t2 := w1_t1_score + w1_t2_score]
+dt[control_first == 0, control_score_t1_t2 := w2_t1_score + w2_t2_score]
+dt[control_first == 1, treatment_mins_t1_t2 := w2_t1_t2_mins]
+dt[control_first == 0, treatment_mins_t1_t2 := w1_t1_t2_mins]
+dt[control_first == 1, control_mins_t1_t2 := w1_t1_t2_mins]
+dt[control_first == 0, control_mins_t1_t2 := w2_t1_t2_mins]
+
+dt[control_first == 1, treatment_score_total := w2_score]
+dt[control_first == 0, treatment_score_total := w1_score]
+dt[control_first == 1, control_score_total := w1_score]
+dt[control_first == 0, control_score_total := w2_score]
+dt[control_first == 1, treatment_mins_total := w2_total_mins]
+dt[control_first == 0, treatment_mins_total := w1_total_mins]
+dt[control_first == 1, control_mins_total := w1_total_mins]
+dt[control_first == 0, control_mins_total := w2_total_mins]
+```
+
+
+```{r}
+names(dt)
+```
+```{r}
+dt
+```
+
+## Regressions and other tests
+
+```{r}
+# t.test(dt$treatment_score_total, dt$control_score_total, paired=TRUE)
+# t.test(dt$treatment_mins_total, dt$control_mins_total, paired=TRUE)
+# t.test(dt$control_mins_t1_t2, dt$treatment_mins_t1_t2, paired=TRUE)
+# t.test(dt$control_score_t1_t2, dt$treatment_score_t1_t2, paired=TRUE)
+# t.test(dt$control_score_t1, dt$treatment_score_t1, paired=TRUE)
+# t.test(dt$control_mins_t1, dt$treatment_mins_t1, paired=TRUE)
+# t.test(dt$control_score_t2, dt$treatment_score_t2, paired=TRUE)
+# t.test(dt$control_mins_t2, dt$treatment_mins_t2, paired=TRUE)
+# t.test(dt$control_score_t3, dt$treatment_score_t3, paired=TRUE)
+# t.test(dt$control_mins_t3, dt$treatment_mins_t3, paired=TRUE)
+```
+
+**All the t-tests above produce p-value > 0.5, so I think this tells us that there is no within subject treatment effect.**
+
+**So we should probaly look at the effect of treatment assignment sequence and contorl vs treatment in week 1 and week 2 separately.**
+
+```{r}
+#within subject, consiering the effect of control vs treatment sequence
+summary(lm(score_diff ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt))
+```
+
+
+```{r}
+#within subject, consiering the effect of control vs treatment sequence
+summary(lm(mins_diff ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt))
+```
+
+
+
+```{r}
+#within subject, consiering the effect of control vs treatment sequence
+
+# summary(lm(score_diff_t1 ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt))
+summary(lm(mins_diff_t1 ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt))
+summary(lm(score_diff_t2 ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt))
+# summary(lm(mins_diff_t2 ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt))
+# summary(lm(score_diff_t3 ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt))
+# summary(lm(mins_diff_t3 ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt))
+# summary(lm(score_diff_t1_t2 ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt))
+# summary(lm(mins_diff_t1_t2~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt))
+
+```
+
+```{r}
+#effect of treatment in week 1
+summary(lm(w1_score ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt))
+#effect of treatment in week 2
+summary(lm(w2_score ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt))
+```
+
+ [1] "subject_id"            "test_set_name"         "w1_code"               "w2_code"              
+ [5] "control_first"         "week1_attempted"       "week2_attempted"       "berkeley_student"     
+ [9] "upwork"                "upwork_20dollars"      "pre_task_control"      "pre_task_treat"       
+[13] "w1_t1_id"              "w1_t1_mins"            "w1_t1_score"           "w1_t2_id"             
+[17] "w1_t2_mins"            "w1_t2_score"           "w1_t3_id"              "w1_t3_mins"           
+[21] "w1_t3_score"           "w1_t1_t2_mins"         "w1_total_mins"         "w1_score"             
+[25] "w2_t1_id"              "w2_t1_mins"            "w2_t1_score"           "w2_t2_id"             
+[29] "w2_t2_mins"            "w2_t2_score"           "w2_t3_id"              "w2_t3_mins"           
+[33] "w2_t3_score"           "w2_t1_t2_mins"         "w2_total_mins"         "w2_score"             
+[37] "years_experience"      "w200"                  "w207"                  "w209"                 
+[41] "first_language"        "test_language_guess"   "team_size"             "age"                  
+[45] "control_time_total"    "treatment_time_total"  "control_time_t1_t2"    "treatment_time_t1_t2" 
+[49] "score_diff"            "mins_diff"             "score_diff_t1"         "mins_diff_t1"         
+[53] "score_diff_t2"         "mins_diff_t2"          "score_diff_t3"         "mins_diff_t3"         
+[57] "score_diff_t1_t2"      "mins_diff_t1_t2"       "treatment_score_t1"    "control_score_t1"     
+[61] "treatment_mins_t1"     "control_mins_t1"       "treatment_score_t2"    "control_score_t2"     
+[65] "treatment_mins_t2"     "control_mins_t2"       "treatment_score_t3"    "control_score_t3"     
+[69] "treatment_mins_t3"     "control_mins_t3"       "treatment_score_t1_t2" "control_score_t1_t2"  
+[73] "treatment_mins_t1_t2"  "control_mins_t1_t2"    "treatment_score_total" "control_score_total"  
+[77] "treatment_mins_total"  "control_mins_total"
+
+
+
+
+
