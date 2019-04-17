@@ -43,10 +43,15 @@ dt[, .N, keyby=.(team_size, control_first)]
 ```
 
 ```{r}
-# Pre-treatment attrition
-nrow(dt[week1_attempted == 0])
-dt[week1_attempted==0]
+# Non-compliance
+dt[pre_task_treat == 0, .N, keyby=control_first]
 ```
+
+```{r}
+# Placebo non-compliance
+dt[pre_task_control == 0, .N, keyby=control_first]
+```
+
 
 ```{r}
 # Post-treatment attrition
@@ -71,15 +76,18 @@ both_attempted[, .('Average Week 2 Score' = mean(w2_score)), keyby=control_first
 ```
 
 ```{r}
-both_attempted[control_first==1, control_score := w1_score]
-both_attempted[control_first==1, treatment_score := w2_score]
-both_attempted[control_first==0, control_score := w2_score]
-both_attempted[control_first==0, treatment_score := w1_score]
+both_attempted[, control_score := ifelse(control_first==1, w1_score, w2_score)]
+both_attempted[, treatment_score := ifelse(control_first==1, w2_score, w1_score)]
 both_attempted[, .('Average Control Score' = mean(control_score), 'Average Treatment Score' = mean(treatment_score))]
+
+t.test(both_attempted$control_score, both_attempted$treatment_score)
 ```
 
 ```{r}
-both_attempted[, .('Average Control Score' = mean(control_score), 'Average Treatment Score' = mean(treatment_score)), keyby=.(upwork)]
+both_attempted[, .(
+  'Average Control Score' = mean(control_score), 
+  'Average Treatment Score' = mean(treatment_score)), 
+  keyby=upwork]
 ```
 
 

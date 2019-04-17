@@ -1,0 +1,256 @@
+---
+title: "Coding Task Difficulty EDA"
+author: "Arunima Kayath, Daniel Rasband, Payman Rhogani"
+date: "4/16/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Coding Task Difficulty EDA
+
+```{r}
+library(data.table)
+library(magrittr)
+library(stargazer)
+```
+
+Pull in the data.
+
+```{r}
+d <- read.csv("CodingExperimentFinalResults.csv")
+dt <- as.data.table(d)
+head(dt)
+```
+
+Get all scores for each task.
+
+```{r}
+q1 <- data.table(
+  score = dt[week1_attempted == 1, w1_t1_score],
+  mins = dt[week1_attempted == 1, w1_t1_mins]
+)
+
+q2 <- data.table(
+  score = dt[week2_attempted == 1, w2_t1_score],
+  mins = dt[week2_attempted == 1, w2_t1_mins]
+)
+
+dt[(week2_attempted == 1) & (w2_t2_id == 3), w2_t2_mins]
+
+q3 <- data.table(
+  score = c(
+    dt[(week1_attempted == 1) & (w1_t2_id == 3), w1_t2_score],
+    dt[(week2_attempted == 1) & (w2_t2_id == 3), w2_t2_score]
+  ),
+  mins = c(
+    dt[(week1_attempted == 1) & (w1_t2_id == 3), w1_t2_mins],
+    dt[(week2_attempted == 1) & (w2_t2_id == 3), w2_t2_mins]
+  )
+)
+
+q4 <- data.table(
+  score = c(
+    dt[(week1_attempted == 1) & (w1_t2_id == 4), w1_t2_score],
+    dt[(week2_attempted == 1) & (w2_t2_id == 4), w2_t2_score]
+  ),
+  mins = c(
+    dt[(week1_attempted == 1) & (w1_t2_id == 4), w1_t2_mins],
+    dt[(week2_attempted == 1) & (w2_t2_id == 4), w2_t2_mins]
+  )
+)
+
+q5 <- data.table(
+  score = c(
+    dt[(week1_attempted == 1) & (w1_t3_id == 5), w1_t3_score],
+    dt[(week2_attempted == 1) & (w2_t3_id == 5), w2_t3_score]
+  ),
+  mins = c(
+    dt[(week1_attempted == 1) & (w1_t3_id == 5), w1_t3_mins],
+    dt[(week2_attempted == 1) & (w2_t3_id == 5), w2_t3_mins]
+  )
+)
+
+q6 <- data.table(
+  score = c(
+    dt[(week1_attempted == 1) & (w1_t3_id == 6), w1_t3_score],
+    dt[(week2_attempted == 1) & (w2_t3_id == 6), w2_t3_score]
+  ),
+  mins = c(
+    dt[(week1_attempted == 1) & (w1_t3_id == 6), w1_t3_mins],
+    dt[(week2_attempted == 1) & (w2_t3_id == 6), w2_t3_mins]
+  )
+)
+
+par(mfrow=c(3,2))
+boxplot(q1$score, main='Task 1 Scores')
+boxplot(q2$score, main='Task 2 Scores')
+boxplot(q3$score, main='Task 3 Scores')
+boxplot(q4$score, main='Task 4 Scores')
+boxplot(q5$score, main='Task 5 Scores')
+boxplot(q6$score, main='Task 6 Scores')
+```
+
+```{r}
+t.test(q1$score, q2$score)
+```
+
+```{r}
+t.test(q3$score, q4$score)
+```
+
+```{r}
+t.test(q5$score, q6$score)
+```
+
+```{r}
+t.test(q1$mins, q2$mins)
+```
+
+```{r}
+t.test(q3$mins, q4$mins)
+```
+
+```{r}
+t.test(q5$mins, q6$mins)
+```
+
+## Control for task difficulty
+
+Now I want to look at whether controlling for task difficulty will give me any better results.
+
+### Within-subjects
+
+```{r}
+both_attempted <- dt[(week1_attempted == 1) & (week2_attempted == 1)]
+both_attempted[, t1t2_control_score := ifelse(
+  control_first == 1, 
+  (w1_t1_score + w1_t2_score) / 2, 
+  (w2_t1_score + w2_t2_score) / 2)]
+both_attempted[, t1t2_treatment_score := ifelse(
+  control_first == 1,
+  (w2_t1_score + w2_t2_score) / 2, 
+  (w1_t1_score + w1_t2_score) / 2)]
+
+both_attempted[, t1t2_control_mins := ifelse(control_first==1, w1_t1_t2_mins, w2_t1_t2_mins)]
+both_attempted[, t1t2_treatment_mins := ifelse(control_first==1, w2_t1_t2_mins, w1_t1_t2_mins)]
+
+both_attempted[, control_score := ifelse(control_first==1, w1_score, w2_score)]
+both_attempted[, treatment_score := ifelse(control_first==1, w2_score, w1_score)]
+
+both_attempted[, control_mins := ifelse(control_first==1, w1_total_mins, w2_total_mins)]
+both_attempted[, treatment_mins := ifelse(control_first==1, w2_total_mins, w1_total_mins)]
+
+both_attempted[, score_diff := .(treatment_score - control_score)]
+both_attempted[, mins_diff := .(treatment_mins - control_mins)]
+both_attempted[, t1t2_score_diff := .(t1t2_treatment_score - t1t2_control_score)]
+both_attempted[, t1t2_mins_diff := .(t1t2_treatment_mins - t1t2_control_mins)]
+```
+
+```{r}
+summary(lm(t1t2_score_diff ~ upwork + berkeley_student + years_experience + age, data=both_attempted))
+```
+
+```{r}
+summary(lm(t1t2_mins_diff ~ upwork + berkeley_student + years_experience + age, data=both_attempted))
+```
+
+# Control for task
+
+```{r}
+both_attempted[, control_t1_id_1 := ifelse(control_first == 1, 1, 0)]
+both_attempted[, control_t2_id_3 := ifelse(
+  ((control_first == 1) & (w1_t2_id == 3)) |
+    ((control_first == 0) & (w2_t2_id == 3)), 
+  1, 0)]
+both_attempted[, control_t3_id_5 := ifelse(
+  ((control_first == 1) & (w1_t3_id == 5)) |
+    ((control_first == 0) & (w2_t3_id == 5)), 
+  1, 0)]
+```
+
+```{r}
+both_attempted[, .(subject_id, t1t2_score_diff, control_first, 'W1 T1 T2 Score' = (w1_t1_score + w1_t2_score) / 2, 'W2 T1 T2 Score' = (w2_t1_score + w2_t2_score) / 2, t1t2_control_score, t1t2_treatment_score)]
+```
+
+
+```{r results="asis"}
+model <- lm(t1t2_mins_diff ~ control_t1_id_1 + control_t2_id_3 + berkeley_student + upwork + age + years_experience, data=both_attempted)
+stargazer(model)
+```
+
+```{r results="asis"}
+model <- lm(t1t2_score_diff ~ control_t1_id_1 + control_t2_id_3 + berkeley_student + upwork + age + years_experience, data=both_attempted)
+stargazer(model)
+```
+
+```{r results="asis"}
+model <- lm(score_diff ~ control_t1_id_1 + control_t2_id_3 + berkeley_student + upwork + age + years_experience, data=both_attempted)
+stargazer(model)
+```
+
+```{r results="asis"}
+model <- lm(mins_diff ~ control_t1_id_1 + control_t2_id_3 + berkeley_student + upwork + age + years_experience, data=both_attempted)
+stargazer(model)
+```
+
+## Between Subjects
+
+```{r}
+flattened_dt <- data.table(
+  subject_id=c(
+    both_attempted[, subject_id],
+    both_attempted[, subject_id]
+  ),
+  t1t2_mins=c(
+    both_attempted[, w1_t1_t2_mins],
+    both_attempted[, w2_t1_t2_mins]
+  ),
+  t1t2_score=c(
+    both_attempted[, (w1_t1_score + w1_t2_score) / 2],
+    both_attempted[, (w2_t1_score + w2_t2_score) / 2]
+  ),
+  total_mins=c(
+    both_attempted[, w1_total_mins],
+    both_attempted[, w2_total_mins]
+  ),
+  score=c(
+    both_attempted[, w1_score],
+    both_attempted[, w2_score]
+  ),
+  treat=c(
+    both_attempted[, abs(control_first - 1)],
+    both_attempted[, control_first]
+  ),
+  upwork=c(both_attempted[, upwork], both_attempted[, upwork]),
+  berkeley_student=c(both_attempted[, berkeley_student], both_attempted[, berkeley_student]),
+  control_first=c(both_attempted[, control_first], both_attempted[, control_first]),
+  years_experience=c(both_attempted[, years_experience], both_attempted[, years_experience]),
+  age=c(both_attempted[, age], both_attempted[, age]),
+  control_t1_id_1=c(both_attempted[, control_t1_id_1], both_attempted[, control_t1_id_1]),
+  control_t2_id_3=c(both_attempted[, control_t2_id_3], both_attempted[, control_t2_id_3]),
+  control_t3_id_5=c(both_attempted[, control_t3_id_5], both_attempted[, control_t3_id_5])
+)
+```
+
+```{r results="asis"}
+between.subjects.lm <- lm(t1t2_score ~ treat + control_t1_id_1 + control_t2_id_3, data=flattened_dt)
+stargazer(between.subjects.lm)
+```
+
+```{r results="asis"}
+between.subjects.mins.lm <- lm(t1t2_mins ~ treat + control_t1_id_1 + control_t2_id_3, data=flattened_dt)
+stargazer(between.subjects.mins.lm)
+```
+
+```{r results="asis"}
+between.subjects.score.all.lm <- lm(t1t2_score ~ treat + control_t1_id_1 + control_t2_id_3 + years_experience + upwork + age + berkeley_student + control_first, data=flattened_dt)
+stargazer(between.subjects.score.all.lm)
+```
+
+```{r results="asis"}
+between.subjects.mins.all.lm <- lm(t1t2_mins ~ treat + control_t1_id_1 + control_t2_id_3 + years_experience + upwork + age + berkeley_student + control_first, data=flattened_dt)
+stargazer(between.subjects.mins.all.lm)
+```
