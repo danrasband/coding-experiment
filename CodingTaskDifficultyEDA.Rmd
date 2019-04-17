@@ -175,15 +175,25 @@ both_attempted[, control_t3_id_5 := ifelse(
 both_attempted[, .(subject_id, t1t2_score_diff, control_first, 'W1 T1 T2 Score' = (w1_t1_score + w1_t2_score) / 2, 'W2 T1 T2 Score' = (w2_t1_score + w2_t2_score) / 2, t1t2_control_score, t1t2_treatment_score)]
 ```
 
+```{r results="asis"}
+t1t2.mins.diff.small.lm <- lm(t1t2_mins_diff ~ control_t1_id_1 + control_t2_id_3, data=both_attempted)
+t1t2.score.diff.small.lm <- lm(t1t2_score_diff ~ control_t1_id_1 + control_t2_id_3, data=both_attempted)
+stargazer(t1t2.mins.diff.small.lm, t1t2.score.diff.small.lm)
+```
+
 
 ```{r results="asis"}
-model <- lm(t1t2_mins_diff ~ control_t1_id_1 + control_t2_id_3 + berkeley_student + upwork + age + years_experience, data=both_attempted)
-stargazer(model)
+t1t2.mins.diff.lm <- lm(t1t2_mins_diff ~ control_t1_id_1 + control_t2_id_3 + berkeley_student + upwork + age + years_experience, data=both_attempted)
+stargazer(t1t2.mins.diff.lm)
 ```
 
 ```{r results="asis"}
-model <- lm(t1t2_score_diff ~ control_t1_id_1 + control_t2_id_3 + berkeley_student + upwork + age + years_experience, data=both_attempted)
-stargazer(model)
+t1t2.score.diff.lm <- lm(t1t2_score_diff ~ control_t1_id_1 + control_t2_id_3 + berkeley_student + upwork + age + years_experience, data=both_attempted)
+stargazer(t1t2.score.diff.lm)
+```
+
+```{r results="asis"}
+stargazer(t1t2.mins.diff.lm, t1t2.score.diff.lm)
 ```
 
 ```{r results="asis"}
@@ -241,16 +251,14 @@ stargazer(between.subjects.lm)
 ```
 
 ```{r results="asis"}
+library(stargazer)
 between.subjects.mins.lm <- lm(t1t2_mins ~ treat + control_t1_id_1 + control_t2_id_3, data=flattened_dt)
-stargazer(between.subjects.mins.lm)
+between.subjects.score.lm <- lm(t1t2_score ~ treat + control_t1_id_1 + control_t2_id_3, data=flattened_dt)
+stargazer(between.subjects.mins.lm, between.subjects.score.lm)
 ```
 
 ```{r results="asis"}
 between.subjects.score.all.lm <- lm(t1t2_score ~ treat + control_t1_id_1 + control_t2_id_3 + years_experience + upwork + age + berkeley_student + control_first, data=flattened_dt)
-stargazer(between.subjects.score.all.lm)
-```
-
-```{r results="asis"}
 between.subjects.mins.all.lm <- lm(t1t2_mins ~ treat + control_t1_id_1 + control_t2_id_3 + years_experience + upwork + age + berkeley_student + control_first, data=flattened_dt)
-stargazer(between.subjects.mins.all.lm)
+stargazer(between.subjects.mins.all.lm, between.subjects.score.all.lm)
 ```
