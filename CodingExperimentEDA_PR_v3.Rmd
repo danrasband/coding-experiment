@@ -18,6 +18,7 @@ library(devtools)
 library(mice) #for missing value imputation
 library(reshape2)
 library(gridExtra)
+library(stargazer)
 ```
 
 
@@ -76,73 +77,11 @@ d[(week1_attempted==1) & (week2_attempted==0),.N,keyby=control_first]
 #No differen between control vs treatment groups
 ```
 
-**Since the numbers of post-treatment attrited subjects in control vs treatment groups (week 1) are very close, we could assume that the missting values in week 2 are MCAR (missing completely at random). Therefore, we will use imputation to generate values for week 2 for the 5 subjects that completed week 1 test, but not week 2.** 
-
 ```{r}
-completed <- d[week1_attempted==1]
-completed
-nrow(completed)
-```
-
-```{r}
-#delete unnecessary columns
-completed[ ,c('pre_task_control', 'pre_task_treat','w1_code','w2_code','first_language','test_language_guess','w207','w200','w209')] <- list(NULL)
-```
-
-```{r}
-completed[week2_attempted==0]
-```
-
-
-```{r}
-#replace 0's with NA so that imputation would replace NA's
-completed$w2_t1_t2_mins[completed$w2_t1_t2_mins == 0] <- NA
-completed$w2_total_mins[completed$w2_total_mins == 0] <- NA
-completed$w2_score[completed$w2_score == 0] <- NA
-```
-
-
-```{r}
-# print(md.pattern(completed))
-```
-
-```{r}
-imputed <- mice(completed, m=5, maxit=50, meth='midastouch', seed=500)
-```
-
-```{r}
-summary(imputed)
-```
-
-
-```{r}
-#convering into dataframe
-imputed_dataframe <- complete(imputed, 1)
-```
-
-```{r}
-#convert into data table again
-dt <- as.data.table(imputed_dataframe)
+dt <- d[(week1_attempted==1) & (week2_attempted==1)]
 dt
 ```
 
-```{r}
-dt[w1_score < 40]
-```
-
-```{r}
-dt[week2_attempted==0 & control_first==1]
-```
-
-```{r}
-dt[week2_attempted==0 & control_first==0]
-```
-
-
-```{r}
-#Number of subjects in control/treatment groups in week 1
-dt[, .N, by=control_first]
-```
 
 
 ```{r}
@@ -380,44 +319,41 @@ plot9 <- ggplot(dt, aes(Control_w1, w2_score)) + geom_boxplot(varwidth=T,aes(fil
 grid.arrange(plot8, plot9, ncol=2, nrow=1)
 ```
 
-
-1] "Variables:"
- [1] "subject_id"          "test_set_name"       "w1_code"             "w2_code"            
- [5] "control_first"       "week1_attempted"     "week2_attempted"     "berkeley_student"   
- [9] "upwork"              "upwork_20dollars"    "pre_task_control"    "pre_task_treat"     
-[13] "w1_t1_id"            "w1_t1_mins"          "w1_t1_score"         "w1_t2_id"           
-[17] "w1_t2_mins"          "w1_t2_score"         "w1_t3_id"            "w1_t3_mins"         
-[21] "w1_t3_score"         "w1_t1_t2_mins"       "w1_total_mins"       "w1_score"           
-[25] "w2_t1_id"            "w2_t1_mins"          "w2_t1_score"         "w2_t2_id"           
-[29] "w2_t2_mins"          "w2_t2_score"         "w2_t3_id"            "w2_t3_mins"         
-[33] "w2_t3_score"         "w2_t1_t2_mins"       "w2_total_mins"       "w2_score"           
-[37] "years_experience"    "w200"                "w207"                "w209"               
-[41] "first_language"      "test_language_guess" "team_size"           "age"
-
-
 ```{r}
-dt[control_first==1, control_score := w1_score]
-dt[control_first==1, treatment_score := w2_score]
-dt[control_first==0, control_score := w2_score]
-dt[control_first==0, treatment_score := w1_score]
-dt[, .('Average Control Score' = mean(control_score), 'Average Treatment Score' = mean(treatment_score))]
+# dt[control_first==1, control_score := w1_score]
+# dt[control_first==1, treatment_score := w2_score]
+# dt[control_first==0, control_score := w2_score]
+# dt[control_first==0, treatment_score := w1_score]
+# dt[, .('Average Control Score' = mean(control_score), 'Average Treatment Score' = mean(treatment_score))]
 ```
 
 ```{r}
-dt[, .('Average Control Score' = mean(control_score), 'Average Treatment Score' = mean(treatment_score)), keyby=.(upwork)]
+# dt[, .('Average Control Score' = mean(control_score), 'Average Treatment Score' = mean(treatment_score)), keyby=.(upwork)]
+```
+
+```{r}
+names(dt)
 ```
 
 
 ```{r}
-dt[control_first==1, control_time := w1_t1_t2_mins]
-dt[control_first==1, treatment_time := w2_t1_t2_mins]
-dt[control_first==0, control_time := w2_t1_t2_mins]
-dt[control_first==0, treatment_time := w1_t1_t2_mins]
-dt[, .('Average Control Time for First 2 Tasks' = mean(control_time), 'Average Treatment Time for First 2 Tasks' = mean(treatment_time))]
+dt[control_first==1, control_time_total := w1_total_mins]
+dt[control_first==1, treatment_time_total := w2_total_mins]
+dt[control_first==0, control_time_total := w1_total_mins]
+dt[control_first==0, treatment_time_total := w2_total_mins]
+
+dt[control_first==1, control_time_t1_t2 := w1_t1_t2_mins]
+dt[control_first==1, treatment_time_t1_t2 := w2_t1_t2_mins]
+dt[control_first==0, control_time_t1_t2 := w2_t1_t2_mins]
+dt[control_first==0, treatment_time_t1_t2 := w1_t1_t2_mins]
+
+dt[, .('Average Control Time for All Tasks' = mean(control_time_total), 'Average Treatment Time for All Tasks' = mean(treatment_time_total))]
+dt[, .('Average Control Time for First 2 Tasks' = mean(control_time_t1_t2), 'Average Treatment Time for First 2 Tasks' = mean(treatment_time_t1_t2))]
+
 ```
 
 ```{r}
-dt[, .('Average Control Time for First 2 Tasks' = mean(control_time), 'Average Treatment Time for First 2 Tasks' = mean(treatment_time)), keyby=control_first]
+# dt[, .('Average Control Time for First 2 Tasks' = mean(control_time), 'Average Treatment Time for First 2 Tasks' = mean(treatment_time)), keyby=control_first]
 ```
 
 ```{r}
@@ -435,33 +371,105 @@ dt[week1_attempted == 1, .N, keyby=upwork]
 
 
 ```{r}
-par(mfrow=c(4, 2))
-for (val in unique(dt$test_set_name)) {
-  both_attempted[test_set_name==val, hist(w1_t2_score, breaks = 10, main=val)]
-}
+# par(mfrow=c(4, 2))
+# for (val in unique(dt$test_set_name)) {
+#   both_attempted[test_set_name==val, hist(w1_t2_score, breaks = 10, main=val)]
+# }
 ```
 
-```{r}
-par(mfrow=c(4, 2))
-for (val in unique(dt$test_set_name)) {
-  both_attempted[test_set_name==val, hist(w2_t2_score, breaks = 10, main=val)]
-}
-```
+# ```{r}
+# par(mfrow=c(4, 2))
+# for (val in unique(dt$test_set_name)) {
+#   both_attempted[test_set_name==val, hist(w2_t2_score, breaks = 10, main=val)]
+# }
+# ```
 
 
 
 ```{r}
 dt[control_first == 1, score_diff := w2_score - w1_score]
 dt[control_first == 0, score_diff := w1_score - w2_score]
-dt[control_first == 1, mins_diff := w2_t1_t2_mins - w1_t1_t2_mins]
-dt[control_first == 0, mins_diff := w1_t1_t2_mins - w2_t1_t2_mins]
+dt[control_first == 1, mins_diff := w2_total_mins - w1_total_mins]
+dt[control_first == 0, mins_diff := w1_total_mins - w2_total_mins]
 
-dt[, mean(score_diff)]
-dt[, mean(mins_diff)]
-dt[upwork == 0, mean(score_diff)]
-dt[upwork == 1, mean(score_diff)]
-dt[upwork == 0, mean(mins_diff)]
-dt[upwork == 1, mean(mins_diff)]
+print(paste("Avg score difference:", dt[, mean(score_diff)]))
+print(paste("Avg time difference:", dt[, mean(mins_diff)]))
+
+# dt[upwork == 0, mean(score_diff)]
+# dt[upwork == 1, mean(score_diff)]
+# dt[upwork == 0, mean(mins_diff)]
+# dt[upwork == 1, mean(mins_diff)]
+```
+
+```{r}
+dt[control_first == 1, score_diff_t1 := w2_t1_score - w1_t1_score]
+dt[control_first == 0, score_diff_t1 := w1_t1_score - w2_t1_score]
+dt[control_first == 1, mins_diff_t1 := w2_t1_mins - w1_t1_mins]
+dt[control_first == 0, mins_diff_t1 := w1_t1_mins - w2_t1_mins]
+
+dt[control_first == 1, score_diff_t2 := w2_t2_score - w1_t2_score]
+dt[control_first == 0, score_diff_t2 := w1_t2_score - w2_t2_score]
+dt[control_first == 1, mins_diff_t2 := w2_t2_mins - w1_t2_mins]
+dt[control_first == 0, mins_diff_t2 := w1_t2_mins - w2_t2_mins]
+
+dt[control_first == 1, score_diff_t3 := w2_t3_score - w1_t3_score]
+dt[control_first == 0, score_diff_t3 := w1_t3_score - w2_t3_score]
+dt[control_first == 1, mins_diff_t3 := w2_t3_mins - w1_t3_mins]
+dt[control_first == 0, mins_diff_t3 := w1_t3_mins - w2_t3_mins]
+
+```
+
+```{r}
+dt[,score_diff_t1_t2 := score_diff_t1 + score_diff_t2]
+dt[,mins_diff_t1_t2 := mins_diff_t1 + mins_diff_t2]
+```
+
+
+```{r}
+dt[control_first == 1, treatment_score_t1 := w2_t1_score]
+dt[control_first == 0, treatment_score_t1 := w1_t1_score]
+dt[control_first == 1, control_score_t1 := w1_t1_score]
+dt[control_first == 0, control_score_t1 := w2_t1_score]
+dt[control_first == 1, treatment_mins_t1 := w2_t1_mins]
+dt[control_first == 0, treatment_mins_t1 := w1_t1_mins]
+dt[control_first == 1, control_mins_t1 := w1_t1_mins]
+dt[control_first == 0, control_mins_t1 := w2_t1_mins]
+
+dt[control_first == 1, treatment_score_t2 := w2_t2_score]
+dt[control_first == 0, treatment_score_t2 := w1_t2_score]
+dt[control_first == 1, control_score_t2 := w1_t2_score]
+dt[control_first == 0, control_score_t2 := w2_t2_score]
+dt[control_first == 1, treatment_mins_t2 := w2_t2_mins]
+dt[control_first == 0, treatment_mins_t2 := w1_t2_mins]
+dt[control_first == 1, control_mins_t2 := w1_t2_mins]
+dt[control_first == 0, control_mins_t2 := w2_t2_mins]
+
+dt[control_first == 1, treatment_score_t3 := w2_t3_score]
+dt[control_first == 0, treatment_score_t3 := w1_t3_score]
+dt[control_first == 1, control_score_t3 := w1_t3_score]
+dt[control_first == 0, control_score_t3 := w2_t3_score]
+dt[control_first == 1, treatment_mins_t3 := w2_t3_mins]
+dt[control_first == 0, treatment_mins_t3 := w1_t3_mins]
+dt[control_first == 1, control_mins_t3 := w1_t3_mins]
+dt[control_first == 0, control_mins_t3 := w2_t3_mins]
+
+dt[control_first == 1, treatment_score_t1_t2 := w2_t1_score + w2_t2_score]
+dt[control_first == 0, treatment_score_t1_t2 := w1_t1_score + w1_t2_score]
+dt[control_first == 1, control_score_t1_t2 := w1_t1_score + w1_t2_score]
+dt[control_first == 0, control_score_t1_t2 := w2_t1_score + w2_t2_score]
+dt[control_first == 1, treatment_mins_t1_t2 := w2_t1_t2_mins]
+dt[control_first == 0, treatment_mins_t1_t2 := w1_t1_t2_mins]
+dt[control_first == 1, control_mins_t1_t2 := w1_t1_t2_mins]
+dt[control_first == 0, control_mins_t1_t2 := w2_t1_t2_mins]
+
+dt[control_first == 1, treatment_score_total := w2_score]
+dt[control_first == 0, treatment_score_total := w1_score]
+dt[control_first == 1, control_score_total := w1_score]
+dt[control_first == 0, control_score_total := w2_score]
+dt[control_first == 1, treatment_mins_total := w2_total_mins]
+dt[control_first == 0, treatment_mins_total := w1_total_mins]
+dt[control_first == 1, control_mins_total := w1_total_mins]
+dt[control_first == 0, control_mins_total := w2_total_mins]
 ```
 
 
@@ -469,68 +477,131 @@ dt[upwork == 1, mean(mins_diff)]
 names(dt)
 ```
 
-## Regressions
+```{r}
+dt
+```
+
+## Regressions and other tests
 
 ```{r}
-temp <- dt[week2_attempted==1]
-temp
+# t.test(dt$treatment_score_total, dt$control_score_total, paired=TRUE)
+# t.test(dt$treatment_mins_total, dt$control_mins_total, paired=TRUE)
+# t.test(dt$control_mins_t1_t2, dt$treatment_mins_t1_t2, paired=TRUE)
+# t.test(dt$control_score_t1_t2, dt$treatment_score_t1_t2, paired=TRUE)
+# t.test(dt$control_score_t1, dt$treatment_score_t1, paired=TRUE)
+# t.test(dt$control_mins_t1, dt$treatment_mins_t1, paired=TRUE)
+# t.test(dt$control_score_t2, dt$treatment_score_t2, paired=TRUE)
+# t.test(dt$control_mins_t2, dt$treatment_mins_t2, paired=TRUE)
+# t.test(dt$control_score_t3, dt$treatment_score_t3, paired=TRUE)
+# t.test(dt$control_mins_t3, dt$treatment_mins_t3, paired=TRUE)
+```
+
+**All the t-tests above produce p-value > 0.5, so I think this tells us that there is no within subject treatment effect.**
+
+**So we should probaly look at the effect of treatment assignment sequence and contorl vs treatment in week 1 and week 2 separately.**
+
+
+```{r}
+#within subject, consiering the effect of control vs treatment sequence
+seq_time_lm <- lm(mins_diff_t1_t2 ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt)
+seq_score_lm <- lm(score_diff_t1_t2 ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt)
 ```
 
 ```{r}
-summary(lm(score_diff ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, temp))
-# summary(lm(w2_t1_score ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, temp))
-
+# stargazer(seq_time_lm, seq_score_lm, type="text", font.size = "Huge")
 ```
 
 ```{r}
-summary(lm(w1_score ~ control_first +  upwork + I(upwork * control_first), dt))
+#within subject, consiering the effect of control vs treatment sequence. for Compliers
+seq_time_lm_c <- lm(mins_diff_t1_t2 ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt[(pre_task_control == 1) & (pre_task_treat == 1)])
+seq_score_lm_c <- lm(score_diff_t1_t2 ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt[(pre_task_control == 1) & (pre_task_treat == 1)])
+# stargazer(seq_time_lm, seq_score_lm, type="text")
+```
+
+
+
+```{r}
+#single variable
+seq_time_lm2 <- lm(mins_diff_t1_t2 ~ control_first, dt)
+seq_score_lm2 <- lm(score_diff_t1_t2 ~ control_first, dt)
+seq_time_lm_c2 <- lm(mins_diff_t1_t2 ~ control_first, dt[(pre_task_control == 1) & (pre_task_treat == 1)])
+seq_score_lm_c2 <- lm(score_diff_t1_t2 ~ control_first, dt[(pre_task_control == 1) & (pre_task_treat == 1)])
+```
+
+```{r}
+stargazer(seq_time_lm, seq_score_lm, seq_time_lm_c, seq_score_lm_c, column.labels = c("All Subjects","All Subjects","Compliers","Compliers"), covariate.labels= "Control Group, wk1", type="text")
+```
+
+```{r}
+stargazer(seq_time_lm2, seq_score_lm2, seq_time_lm_c2, seq_score_lm_c2, column.labels = c("All Subjects","All Subjects","Compliers","Compliers"), covariate.labels= "Control Group, wk1", type="text")
 ```
 
 
 ```{r}
-summary(lm(score_diff ~ upwork + control_first, dt))
-```
-
-```{r}
-summary(lm(score_diff ~ control_first, dt))
-```
-
-```{r}
-summary(lm(w2_score ~ control_first + upwork, dt))
-```
-
-
-```{r}
-#PR
-#look at difference betwwen difficulty levels of questions in week 2
-summary(lm(w2_score ~ control_first + upwork, dt))
-```
-
-```{r}
-#PR
-#look at difference betwwen difficulty levels of questions in week 2
-summary(lm(score_diff ~ control_first + upwork, dt))
-```
-
-```{r}
+#within subject, consiering the effect of control vs treatment sequence
 summary(lm(score_diff ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt))
 ```
 
+
 ```{r}
-#within subject
-modelAOV <- aov(score_diff ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt)
-print(summary(modelAOV))
-# demo1.aov <- aov(score_diff ~  control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, data= dt)
-# summary(demo1.aov)
+#within subject, consiering the effect of control vs treatment sequence
+summary(lm(mins_diff ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt))
 ```
+
+
+
+
+
+
 ```{r}
-summary(lm(w1_t1_t2_mins ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt))
-```
-```{r}
-summary(lm(w1_score ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt))
+#within subject, consiering the effect of control vs treatment sequence
+
+summary(lm(score_diff_t1 ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt))
+#
+# summary(lm(mins_diff_t1 ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt))
+# summary(lm(score_diff_t2 ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt))
+
+# summary(lm(mins_diff_t2 ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt))
+# summary(lm(score_diff_t3 ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt))
+# summary(lm(mins_diff_t3 ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt))
+summary(lm(score_diff_t1_t2 ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt))
+# summary(lm(mins_diff_t1_t2~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt))
+
+# add pre_treatment control vs treatment
 ```
 
 ```{r}
-summary(lm(w2_score ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt))
+#effect of treatment in week 1
+# summary(lm(w1_score ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt))
+#effect of treatment in week 2
+# summary(lm(w2_score ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt))
+summary(lm(w1_t2_score ~ control_first + upwork + berkeley_student + upwork_20dollars + years_experience + team_size +age, dt))
+
 ```
+
+
+ [1] "subject_id"            "test_set_name"         "w1_code"               "w2_code"              
+ [5] "control_first"         "week1_attempted"       "week2_attempted"       "berkeley_student"     
+ [9] "upwork"                "upwork_20dollars"      "pre_task_control"      "pre_task_treat"       
+[13] "w1_t1_id"              "w1_t1_mins"            "w1_t1_score"           "w1_t2_id"             
+[17] "w1_t2_mins"            "w1_t2_score"           "w1_t3_id"              "w1_t3_mins"           
+[21] "w1_t3_score"           "w1_t1_t2_mins"         "w1_total_mins"         "w1_score"             
+[25] "w2_t1_id"              "w2_t1_mins"            "w2_t1_score"           "w2_t2_id"             
+[29] "w2_t2_mins"            "w2_t2_score"           "w2_t3_id"              "w2_t3_mins"           
+[33] "w2_t3_score"           "w2_t1_t2_mins"         "w2_total_mins"         "w2_score"             
+[37] "years_experience"      "w200"                  "w207"                  "w209"                 
+[41] "first_language"        "test_language_guess"   "team_size"             "age"                  
+[45] "control_time_total"    "treatment_time_total"  "control_time_t1_t2"    "treatment_time_t1_t2" 
+[49] "score_diff"            "mins_diff"             "score_diff_t1"         "mins_diff_t1"         
+[53] "score_diff_t2"         "mins_diff_t2"          "score_diff_t3"         "mins_diff_t3"         
+[57] "score_diff_t1_t2"      "mins_diff_t1_t2"       "treatment_score_t1"    "control_score_t1"     
+[61] "treatment_mins_t1"     "control_mins_t1"       "treatment_score_t2"    "control_score_t2"     
+[65] "treatment_mins_t2"     "control_mins_t2"       "treatment_score_t3"    "control_score_t3"     
+[69] "treatment_mins_t3"     "control_mins_t3"       "treatment_score_t1_t2" "control_score_t1_t2"  
+[73] "treatment_mins_t1_t2"  "control_mins_t1_t2"    "treatment_score_total" "control_score_total"  
+[77] "treatment_mins_total"  "control_mins_total"
+
+
+
+
 
