@@ -11,6 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library(data.table)
+library(stargazer)
 ```
 
 
@@ -70,10 +71,14 @@ dt[(week1_attempted == 1) & (week2_attempted == 1) & ((w1_t3_score > 0) & (w2_t3
 
 ```{r}
 #creating total score, control and treatment score, score difference columns
-dt$w1_t12sum_score = dt$w1_t1_score + dt$w1_t2_score
-dt$w2_t12sum_score = dt$w2_t1_score + dt$w2_t2_score
+dt$w1_t12sum_score = (dt$w1_t1_score + dt$w1_t2_score)/2
+dt$w2_t12sum_score = (dt$w2_t1_score + dt$w2_t2_score)/2
+dt$w1_t12sum_mins = (dt$w1_t1_mins + dt$w1_t2_mins)
+dt$w2_t12sum_mins = (dt$w2_t1_mins + dt$w2_t2_mins)
 dt$ctrl_t12_score = ifelse(dt$control_first == 1,dt$w1_t12sum_score, dt$w2_t12sum_score)
 dt$treat_t12_score = ifelse(dt$control_first == 1, dt$w2_t12sum_score,dt$w1_t12sum_score)
+dt$w1_pre_treat = ifelse(dt$control_first == 1, dt$pre_task_control, dt$pre_task_treat)
+dt$w2_pre_treat = ifelse(dt$control_first == 1, dt$pre_task_treat, dt$pre_task_control)
 dt$score_diff = dt$treat_t12_score - dt$ctrl_t12_score
 
 head(dt[,.(w1_t1_score,w1_t2_score,w1_t12sum_score,w2_t1_score,w2_t2_score,w2_t12sum_score,control_first,ctrl_t12_score,treat_t12_score,score_diff)])
@@ -105,11 +110,36 @@ Control first is slighly statistically significant. This means that the order in
 ```{r}
 
 #Regression of week 1 score on variables including control_first (in this case a proxy for whether the person was in test or control for week 1)
-lmw1Score <- lm(w1_t12sum_score ~ control_first + upwork + berkeley_student + years_experience + age, data = dt[(week1_attempted == 1) & (week2_attempted == 1) & (pre_task_treat == 1)])
+
+lmw1Score <- lm(w1_t12sum_score ~ control_first + upwork + berkeley_student + years_experience + age + team_size, data = dt[(week1_attempted == 1)])
 summary(lmw1Score)
 
-lmw2Score <- lm(w2_t12sum_score ~ control_first + upwork + berkeley_student + years_experience + age, data = dt[(week1_attempted == 1) & (week2_attempted == 1) & (pre_task_treat == 1)])
+lmw1ScoreSub <- lm(w1_t12sum_score ~ control_first + upwork + berkeley_student + years_experience + age + team_size, data = dt[(week1_attempted == 1) & (w1_pre_treat == 1)])
+summary(lmw1ScoreSub)
+
+lmw2Score <- lm(w2_t12sum_score ~ control_first + upwork + berkeley_student + years_experience + age + team_size, data = dt[(week1_attempted == 1) & (week2_attempted == 1)])
 summary(lmw2Score)
+
+lmw2ScoreSub <- lm(w2_t12sum_score ~ control_first + upwork + berkeley_student + years_experience + age + team_size, data = dt[(week1_attempted == 1) & (week2_attempted == 1) & (w2_pre_treat == 1)])
+summary(lmw2Score)
+
+lmw1Mins <- lm(w1_t12sum_mins ~ control_first + upwork + berkeley_student + years_experience + age + team_size, data = dt[(week1_attempted == 1)])
+summary(lmw1Score)
+
+lmw1MinsSub <- lm(w1_t12sum_mins ~ control_first + upwork + berkeley_student + years_experience + age + team_size, data = dt[(week1_attempted == 1) & (w1_pre_treat == 1)])
+summary(lmw1Score)
+
+lmw2Mins <- lm(w2_t12sum_mins ~ control_first + upwork + berkeley_student + years_experience + age + team_size, data = dt[(week1_attempted == 1) & (week2_attempted == 1)])
+summary(lmw2Score)
+
+lmw2MinsSub <- lm(w2_t12sum_mins ~ control_first + upwork + berkeley_student + years_experience + age + team_size, data = dt[(week1_attempted == 1) & (week2_attempted == 1) & (w2_pre_treat == 1)])
+summary(lmw2Score)
+```
+
+```{r}
+
+stargazer(lmw1Score,lmw2Score,lmw1Mins,lmw2Mins)
+
 ```
 
 ```{r}
