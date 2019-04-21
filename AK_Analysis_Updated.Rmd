@@ -168,7 +168,7 @@ flattened_dt <- data.table(
   ),
   t1t2_mins=c(
     both_attempted[, Week1_Total_Minutes],
-    both_attempted[, Week1_Total_Minutes]
+    both_attempted[, Week2_Total_Minutes]
   ),
   t1t2_score=c(
     both_attempted[, (w1_t1_score + w1_t2_score) / 2],
@@ -192,16 +192,88 @@ flattened_dt <- data.table(
   years_experience=c(both_attempted[, years_experience], both_attempted[, years_experience]),
   age=c(both_attempted[, age], both_attempted[, age])
 )
-lmAllWithin <- summary(lm(t1t2_score ~ treat + factor(subject_id), data=flattened_dt))
-lmAllMins <- summary(lm(t1t2_mins ~ treat + factor(subject_id), data=flattened_dt))
-lmUpworkWithin <- summary(lm(t1t2_score ~ treat + factor(subject_id), data=flattened_dt[upwork == 1]))
-lmBerkeleyWithin <- summary(lm(t1t2_score ~ treat + factor(subject_id), data=flattened_dt[berkeley_student == 1]))
-lmOthersWithin <- summary(lm(t1t2_score ~ treat + factor(subject_id), data=flattened_dt[(upwork == 0) & (berkeley_student == 0)]))
+
+setnames(flattened_dt, old=c("t1t2_score", "t1t2_mins"), new=c("Average_Score","Total_Minutes"))
+
+lmAllWithin <- lm(Average_Score ~ treat + factor(subject_id), data=flattened_dt)
+lmUpworkWithin <- lm(Average_Score ~ treat + factor(subject_id), data=flattened_dt[upwork == 1])
+lmBerkeleyWithin <- lm(Average_Score ~ treat + factor(subject_id), data=flattened_dt[berkeley_student == 1])
+lmOthersWithin <- lm(Average_Score ~ treat + factor(subject_id), data=flattened_dt[(upwork == 0) & (berkeley_student == 0)])
+lmAllMins <- lm(Total_Minutes ~ treat + factor(subject_id), data=flattened_dt)
+lmUpworkMins <- lm(Total_Minutes ~ treat + factor(subject_id), data=flattened_dt[upwork == 1])
+lmBerkeleyMins <- lm(Total_Minutes ~ treat + factor(subject_id), data=flattened_dt[berkeley_student == 1])
+lmOthersMins <- lm(Total_Minutes ~ treat + factor(subject_id), data=flattened_dt[(upwork == 0) & (berkeley_student == 0)])
 ```
 
 ```{r results = 'asis'}
-stargazer(lmAllWithin,lmAllMins, type = 'text')
+stargazer(lmAllWithin, lmAllMins, type = 'text', omit = 'subject_id', report = "vcsp*")
 ```
+```{r}
+stargazer(lmAllWithin, lmUpworkWithin, lmBerkeleyWithin, lmOthersWithin,column.labels   = c("All", "Upwork", "Berkeley Students", "Others"), type = 'text', omit = 'subject_id', report = "vcsp*")
+
+```
+```{r}
+stargazer(lmAllMins, lmUpworkMins, lmBerkeleyMins, lmOthersMins,column.labels   = c("All", "Upwork", "Berkeley Students", "Others"), type = 'text', omit = 'subject_id', report = "vcsp*")
+
+```
+
+```{r}
+#Within subjects, compliers only
+both_attempted = dt[(week1_attempted == 1) & (week2_attempted == 1) & (pre_task_treat == 1) & (pre_task_control == 1)]
+flattened_dt <- data.table(
+  subject_id=c(
+    both_attempted[, subject_id],
+    both_attempted[, subject_id]
+  ),
+  t1t2_mins=c(
+    both_attempted[, Week1_Total_Minutes],
+    both_attempted[, Week2_Total_Minutes]
+  ),
+  t1t2_score=c(
+    both_attempted[, (w1_t1_score + w1_t2_score) / 2],
+    both_attempted[, (w2_t1_score + w2_t2_score) / 2]
+  ),
+  total_mins=c(
+    both_attempted[, w1_total_mins],
+    both_attempted[, w2_total_mins]
+  ),
+  score=c(
+    both_attempted[, w1_score],
+    both_attempted[, w2_score]
+  ),
+  treat=c(
+    both_attempted[, abs(control_first - 1)],
+    both_attempted[, control_first]
+  ),
+  upwork=c(both_attempted[, upwork], both_attempted[, upwork]),
+  berkeley_student=c(both_attempted[, berkeley_student], both_attempted[, berkeley_student]),
+  control_first=c(both_attempted[, control_first], both_attempted[, control_first]),
+  years_experience=c(both_attempted[, years_experience], both_attempted[, years_experience]),
+  age=c(both_attempted[, age], both_attempted[, age])
+)
+
+setnames(flattened_dt, old=c("t1t2_score", "t1t2_mins"), new=c("Average_Score","Total_Minutes"))
+
+lmAllWithin <- lm(Average_Score ~ treat + factor(subject_id), data=flattened_dt)
+lmUpworkWithin <- lm(Average_Score ~ treat + factor(subject_id), data=flattened_dt[upwork == 1])
+lmBerkeleyWithin <- lm(Average_Score ~ treat + factor(subject_id), data=flattened_dt[berkeley_student == 1])
+lmOthersWithin <- lm(Average_Score ~ treat + factor(subject_id), data=flattened_dt[(upwork == 0) & (berkeley_student == 0)])
+lmAllMins <- lm(Total_Minutes ~ treat + factor(subject_id), data=flattened_dt)
+lmUpworkMins <- lm(Total_Minutes ~ treat + factor(subject_id), data=flattened_dt[upwork == 1])
+lmBerkeleyMins <- lm(Total_Minutes ~ treat + factor(subject_id), data=flattened_dt[berkeley_student == 1])
+lmOthersMins <- lm(Total_Minutes ~ treat + factor(subject_id), data=flattened_dt[(upwork == 0) & (berkeley_student == 0)])
+```
+
+```{r}
+stargazer(lmAllWithin, lmUpworkWithin, lmBerkeleyWithin, lmOthersWithin,column.labels   = c("All Compliers", "Upwork Compliers", "Berkeley Students Compliers", "Others Compliers"), type = 'text', omit = 'subject_id', report = "vcsp*")
+
+```
+
+```{r}
+stargazer(lmAllMins, lmUpworkMins, lmBerkeleyMins, lmOthersMins,column.labels   = c("All Compliers", "Upwork  Compliers", "Berkeley Students  Compliers", "Others  Compliers"), type = 'text', omit = 'subject_id', report = "vcsp*")
+
+```
+
 
 ```{r}
 #T-test for whether we observe a significant difference
